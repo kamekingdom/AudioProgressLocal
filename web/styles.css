@@ -1,0 +1,228 @@
+:root {
+  --bg: #060709;
+  --panel: #10141a;
+  --panel-border: #1f2c3f;
+  --text: #f2f6ff;
+  --sub: #9eb2cc;
+  --accent: #23d18b;
+  --accent2: #32a4ff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: radial-gradient(circle at 20% 0%, #162132 0%, var(--bg) 46%);
+  color: var(--text);
+  font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+}
+
+.app {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) 1fr;
+  gap: 16px;
+  height: 100%;
+  padding: 16px;
+}
+
+.controls {
+  background: color-mix(in oklab, var(--panel) 92%, black);
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+label,
+.mode-select {
+  color: var(--sub);
+  font-size: 0.92rem;
+}
+
+select {
+  width: 100%;
+  margin-top: 5px;
+  background: #070a0f;
+  color: var(--text);
+  border: 1px solid #2d3b4d;
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.mode-select {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+}
+
+button {
+  flex: 1;
+  border: none;
+  border-radius: 10px;
+  padding: 11px;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+#startBtn {
+  background: linear-gradient(120deg, var(--accent), var(--accent2));
+  color: #031014;
+  font-weight: 700;
+}
+
+#reloadBtn,
+#stopBtn {
+  background: #2a3442;
+  color: #dae6f8;
+}
+
+#stopBtn:disabled,
+#startBtn:disabled,
+#reloadBtn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.stage {
+  border: 1px solid #233248;
+  border-radius: 14px;
+  position: relative;
+  overflow: hidden;
+  background: #000;
+  min-height: 520px;
+}
+
+.dark-layer {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  z-index: 2;
+}
+
+.views-wrap {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  padding: 54px 14px 74px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  background: #070b11;
+}
+
+.view-card {
+  border: 1px solid #2b415c;
+  border-radius: 10px;
+  background: #0d131d;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+
+.view-title {
+  border-bottom: 1px solid #2b415c;
+  color: #c6d6ea;
+  font-size: 0.84rem;
+  padding: 8px 10px;
+}
+
+.view-body {
+  position: relative;
+  overflow: hidden;
+}
+
+.view-body img,
+.view-body canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.view-body img {
+  object-fit: contain;
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.view-body canvas {
+  z-index: 2;
+}
+
+.phase-label {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  z-index: 5;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: color-mix(in oklab, #090d14 86%, #3c5c7f);
+  border: 1px solid #2a405d;
+  font-size: 0.9rem;
+}
+
+.progress-wrap {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  z-index: 5;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in oklab, #090c12 80%, #23364f);
+  border: 1px solid #304661;
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.84rem;
+  color: var(--sub);
+  margin-bottom: 6px;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 14px;
+  background: #101927;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid #2b415d;
+}
+
+.progress-fill {
+  width: 0%;
+  height: 100%;
+  background: linear-gradient(90deg, #2ed798, #67b9ff);
+}
+
+.hidden {
+  display: none;
+}
+
+@media (max-width: 1100px) {
+  .app {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+
+  .views-wrap {
+    grid-template-columns: 1fr;
+  }
+}
