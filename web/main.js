@@ -42,6 +42,16 @@ function lerp(a, b, t) {
   return a + (b - a) * t;
 }
 
+function resolveMode(mode) {
+  if (mode === "A") {
+    return "B";
+  }
+  if (mode === "B") {
+    return "A";
+  }
+  return mode;
+}
+
 function trajectoryFromProgress(mode, progress) {
   const p = clamp01(progress);
 
@@ -50,18 +60,20 @@ function trajectoryFromProgress(mode, progress) {
   }
 
   if (mode === "A") {
-    const y = lerp(-0.9, 1.1, p);
-    const theta = 2 * Math.PI * p;
-    const x = 1.3 * Math.sin(theta);
-    const z = 1.6 * (1 - Math.cos(theta));
+    const y = 0.1;
+    const theta = Math.PI * p;
+    const x = 3.6 * Math.cos(theta);
+    const z = 3.6 * Math.sin(theta);
     return { x, y, z };
   }
 
-  const x = lerp(2.8, -2.8, p);
-  const forwardArc = Math.sin(Math.PI * p);
-  const z = 1.5 * forwardArc;
-  const sinkArc = Math.sin(Math.PI * p);
-  const y = 0.45 - 1.0 * sinkArc;
+  // For UI Mode A (resolved to internal B):
+  // Side(y-z): move upward from chin to top on a semicircle.
+  // Top(x-z): start near center, rise around middle, return to start.
+  const theta = Math.PI * p - Math.PI / 2;
+  const y = 0.05 + 1.05 * Math.sin(theta);
+  const z = 2.0 + 0.8 * Math.cos(theta);
+  const x = 0.0;
   return { x, y, z };
 }
 
@@ -115,11 +127,45 @@ function mapTopXZ(pos, w, h) {
   return { x, y };
 }
 
+function mapSidePoint(mode, pos, progress, w, h) {
+  if (mode === "A") {
+    const x = w * 0.33;
+    const y = h * 0.47;
+    return { x, y };
+  }
+  if (mode === "B") {
+    const p = clamp01(progress);
+    const theta = Math.PI * p - Math.PI / 2;
+    const cx = w * 0.37;
+    const cy = h * 0.47;
+    const r = Math.min(w, h) * 0.28;
+    return {
+      x: cx - r * Math.cos(theta),
+      y: cy - r * Math.sin(theta),
+    };
+  }
+  return mapSideYZ(pos, w, h);
+}
+
+function mapTopPoint(mode, pos, progress, w, h) {
+  if (mode === "A") {
+    const cx = w * 0.5;
+    const cy = h * 0.58;
+    const r = Math.min(w * 0.46, h * 0.58);
+    const theta = Math.PI * clamp01(progress);
+    return {
+      x: cx + r * Math.cos(theta),
+      y: cy - r * Math.sin(theta),
+    };
+  }
+  return mapTopXZ(pos, w, h);
+}
+
 function clearOverlay(ctx, w, h) {
   ctx.clearRect(0, 0, w, h);
 }
 
-function drawDashedRoute(ctx, nodes2d) {
+function drawDashedRoute(ctx, nodes2d, showArrows = true, arrowTs = null) {
   if (nodes2d.length < 2) {
     return;
   }
@@ -135,6 +181,45 @@ function drawDashedRoute(ctx, nodes2d) {
   }
   ctx.stroke();
   ctx.restore();
+
+  if (!showArrows) {
+    return;
+  }
+
+  // Draw directional arrows along the route.
+  const ts = Array.isArray(arrowTs) && arrowTs.length > 0 ? arrowTs : [0.25, 0.5, 0.75];
+  for (const t of ts) {
+    const idx = Math.min(Math.floor(t * (nodes2d.length - 1)), nodes2d.length - 2);
+    const a = nodes2d[idx];
+    const b = nodes2d[idx + 1];
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len = Math.hypot(dx, dy);
+    if (len < 0.0001) {
+      continue;
+    }
+
+    const ux = dx / len;
+    const uy = dy / len;
+    const px = -uy;
+    const py = ux;
+    const headLen = 12;
+    const halfW = 5;
+    const tipX = a.x + dx * 0.5;
+    const tipY = a.y + dy * 0.5;
+    const baseX = tipX - ux * headLen;
+    const baseY = tipY - uy * headLen;
+
+    ctx.save();
+    ctx.fillStyle = "rgba(90, 173, 245, 0.95)";
+    ctx.beginPath();
+    ctx.moveTo(tipX, tipY);
+    ctx.lineTo(baseX + px * halfW, baseY + py * halfW);
+    ctx.lineTo(baseX - px * halfW, baseY - py * halfW);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
 }
 
 function drawCurrentPoint(ctx, p) {
@@ -144,7 +229,8 @@ function drawCurrentPoint(ctx, p) {
   ctx.fill();
 }
 
-function drawRouteAndPosition(mode, progress) {
+function drawRouteAndPosition(mode, progress, showCurrent = true) {
+  const activeMode = resolveMode(mode);
   const sideW = els.sideCanvas.clientWidth;
   const sideH = els.sideCanvas.clientHeight;
   const topW = els.topCanvas.clientWidth;
@@ -155,18 +241,33 @@ function drawRouteAndPosition(mode, progress) {
 
   const sideRoute = [];
   const topRoute = [];
+  const sideAnchor = mapSidePoint(
+    activeMode,
+    trajectoryFromProgress(activeMode, progress),
+    progress,
+    sideW,
+    sideH,
+  );
   for (let i = 0; i <= 100; i += 1) {
-    const pos = trajectoryFromProgress(mode, i / 100);
-    sideRoute.push(mapSideYZ(pos, sideW, sideH));
-    topRoute.push(mapTopXZ(pos, topW, topH));
+    const sampleProgress = i / 100;
+    const pos = trajectoryFromProgress(activeMode, sampleProgress);
+    if (activeMode === "A") {
+      const tinyOffset = Math.sin(sampleProgress * Math.PI * 2) * 10;
+      sideRoute.push({ x: sideAnchor.x, y: sideAnchor.y + tinyOffset });
+    } else {
+      sideRoute.push(mapSidePoint(activeMode, pos, sampleProgress, sideW, sideH));
+    }
+    topRoute.push(mapTopPoint(activeMode, pos, sampleProgress, topW, topH));
   }
 
-  drawDashedRoute(sideCtx, sideRoute);
-  drawDashedRoute(topCtx, topRoute);
+  drawDashedRoute(sideCtx, sideRoute, activeMode !== "A");
+  drawDashedRoute(topCtx, topRoute, true, activeMode === "B" ? [0.25] : null);
 
-  const now = trajectoryFromProgress(mode, progress);
-  drawCurrentPoint(sideCtx, mapSideYZ(now, sideW, sideH));
-  drawCurrentPoint(topCtx, mapTopXZ(now, topW, topH));
+  if (showCurrent) {
+    const now = trajectoryFromProgress(activeMode, progress);
+    drawCurrentPoint(sideCtx, mapSidePoint(activeMode, now, progress, sideW, sideH));
+    drawCurrentPoint(topCtx, mapTopPoint(activeMode, now, progress, topW, topH));
+  }
 }
 
 function showDarkOnly() {
@@ -321,14 +422,15 @@ async function startPass(passNumber) {
   els.timeText.textContent = "0.0 / 0.0 sec";
 
   if (passNumber === 1) {
-    els.phaseLabel.textContent = "1回目: 暗転 + 音源移動";
+    els.phaseLabel.textContent = "1回目: 現在地非表示 + 音源移動";
     els.progressWrap.classList.add("hidden");
-    showDarkOnly();
+    showVisualization();
+    drawRouteAndPosition(state.mode, 0, false);
   } else {
     els.phaseLabel.textContent = "2回目: 可視化 + Progress";
     els.progressWrap.classList.remove("hidden");
     showVisualization();
-    drawRouteAndPosition(state.mode, 0);
+    drawRouteAndPosition(state.mode, 0, true);
   }
 
   await setupAudioForPass();
@@ -358,11 +460,14 @@ function updateMotionAndUI() {
   const current = state.audioEl.currentTime || 0;
   const progress = duration > 0 ? clamp01(current / duration) : 0;
 
-  const pos = trajectoryFromProgress(state.mode, progress);
+  const activeMode = resolveMode(state.mode);
+  const pos = trajectoryFromProgress(activeMode, progress);
   setPannerPosition(pos);
 
-  if (state.pass === 2) {
-    drawRouteAndPosition(state.mode, progress);
+  if (state.pass === 1) {
+    drawRouteAndPosition(state.mode, progress, false);
+  } else if (state.pass === 2) {
+    drawRouteAndPosition(state.mode, progress, true);
     els.progressFill.style.width = `${progress * 100}%`;
     els.timeText.textContent = `${current.toFixed(1)} / ${duration.toFixed(1)} sec`;
   }
@@ -390,9 +495,8 @@ function stopRun(label = "停止") {
   els.progressWrap.classList.add("hidden");
   els.phaseLabel.textContent = label;
   els.progressFill.style.width = "0%";
-  showDarkOnly();
-  clearOverlay(sideCtx, els.sideCanvas.clientWidth, els.sideCanvas.clientHeight);
-  clearOverlay(topCtx, els.topCanvas.clientWidth, els.topCanvas.clientHeight);
+  showVisualization();
+  drawRouteAndPosition(getMode(), 0, false);
 }
 
 function animationLoop() {
@@ -441,8 +545,7 @@ function onModeChanged() {
 
   if (!state.running) {
     showVisualization();
-    drawRouteAndPosition(state.mode, 0);
-    showDarkOnly();
+    drawRouteAndPosition(state.mode, 0, false);
   }
 }
 
@@ -456,8 +559,7 @@ window.addEventListener("resize", () => {
   resizeCanvases();
   if (!state.running) {
     showVisualization();
-    drawRouteAndPosition(getMode(), 0);
-    showDarkOnly();
+    drawRouteAndPosition(getMode(), 0, false);
   }
 });
 
@@ -475,6 +577,6 @@ document.querySelectorAll("input[name='mode']").forEach((radio) => {
 setupImageFallback();
 initTheme();
 resizeCanvases();
-showDarkOnly();
+showVisualization();
 loadAudioList();
 onModeChanged();
