@@ -11,6 +11,10 @@
       <section class="controls">
         <h1>Audio Progress Spatial Demo</h1>
 
+        <div class="actions">
+          <button id="themeToggle" type="button">Dark Mode</button>
+        </div>
+
         <label class="audio-select-wrap">
           <span>audio/ の音源</span>
           <select id="audioSelect"></select>
@@ -37,7 +41,7 @@
 
         <div id="viewsWrap" class="views-wrap hidden" aria-label="Spatial visualization views">
           <div class="view-card">
-            <div class="view-title">Side View (x-y)</div>
+            <div class="view-title">Side View (y-z)</div>
             <div class="view-body">
               <img id="sideImg" src="/image/side.png" alt="Side view reference" />
               <canvas id="sideCanvas" aria-label="Side visualization"></canvas>
