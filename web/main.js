@@ -9,7 +9,6 @@ const state = {
   mediaNode: null,
   gainNode: null,
   selectedAudio: "",
-  theme: "light",
 };
 
 const els = {
@@ -17,7 +16,10 @@ const els = {
   reloadBtn: document.getElementById("reloadBtn"),
   startBtn: document.getElementById("startBtn"),
   stopBtn: document.getElementById("stopBtn"),
-  themeToggle: document.getElementById("themeToggle"),
+  sidebarToggle: document.getElementById("sidebarToggle"),
+  sidebarClose: document.getElementById("sidebarClose"),
+  sidebar: document.getElementById("sidebar"),
+  sidebarBackdrop: document.getElementById("sidebarBackdrop"),
   phaseLabel: document.getElementById("phaseLabel"),
   modeLabel: document.getElementById("modeLabel"),
   timeText: document.getElementById("timeText"),
@@ -71,7 +73,7 @@ function trajectoryFromProgress(mode, progress) {
   // Side(y-z): move upward from chin to top on a semicircle.
   // Top(x-z): start near center, rise around middle, return to start.
   const theta = Math.PI * p - Math.PI / 2;
-  const y = 0.05 + 1.05 * Math.sin(theta);
+  const y = -0.2 + 1.6 * Math.sin(theta);
   const z = 2.0 + 0.8 * Math.cos(theta);
   const x = 0.0;
   return { x, y, z };
@@ -281,28 +283,11 @@ function showVisualization() {
   resizeCanvases();
 }
 
-function applyTheme(theme) {
-  state.theme = theme;
-  document.documentElement.dataset.theme = theme;
-  els.themeToggle.textContent = theme === "light" ? "Dark Mode" : "Light Mode";
-  try {
-    localStorage.setItem("audio_progress_theme", theme);
-  } catch (_e) {
-    // no-op
-  }
-}
-
-function initTheme() {
-  let theme = "light";
-  try {
-    const saved = localStorage.getItem("audio_progress_theme");
-    if (saved === "light" || saved === "dark") {
-      theme = saved;
-    }
-  } catch (_e) {
-    // no-op
-  }
-  applyTheme(theme);
+function setSidebarOpen(open) {
+  document.body.classList.toggle("sidebar-open", open);
+  els.sidebar.setAttribute("aria-hidden", String(!open));
+  els.sidebarToggle.setAttribute("aria-expanded", String(open));
+  els.sidebarBackdrop.classList.toggle("hidden", !open);
 }
 
 async function loadAudioList() {
@@ -529,6 +514,7 @@ async function startRun() {
     els.stopBtn.disabled = false;
     els.audioSelect.disabled = true;
     els.reloadBtn.disabled = true;
+    setSidebarOpen(false);
 
     await startPass(1);
     state.animationHandle = requestAnimationFrame(animationLoop);
@@ -566,17 +552,17 @@ window.addEventListener("resize", () => {
 els.startBtn.addEventListener("click", startRun);
 els.stopBtn.addEventListener("click", () => stopRun("停止"));
 els.reloadBtn.addEventListener("click", loadAudioList);
-els.themeToggle.addEventListener("click", () => {
-  applyTheme(state.theme === "light" ? "dark" : "light");
-});
+els.sidebarToggle.addEventListener("click", () => setSidebarOpen(true));
+els.sidebarClose.addEventListener("click", () => setSidebarOpen(false));
+els.sidebarBackdrop.addEventListener("click", () => setSidebarOpen(false));
 
 document.querySelectorAll("input[name='mode']").forEach((radio) => {
   radio.addEventListener("change", onModeChanged);
 });
 
 setupImageFallback();
-initTheme();
 resizeCanvases();
 showVisualization();
+setSidebarOpen(false);
 loadAudioList();
 onModeChanged();
