@@ -64,7 +64,7 @@ function trajectoryFromProgress(mode, progress) {
   const p = clamp01(progress);
 
   if (mode === "N") {
-    return { x: 1.8, y: 0.0, z: 0.0 };
+    return { x: 0.0, y: 0.0, z: 0.0 };
   }
 
   if (mode === "A") {
