@@ -87,7 +87,7 @@ function trajectoryFromProgress(mode, progress) {
   // Side(y-z): move upward from chin to top on a semicircle.
   // Top(x-z): start near center, rise around middle, return to start.
   const theta = Math.PI * p - Math.PI / 2;
-  const y = -0.2 + 1.6 * Math.sin(theta);
+  const y = 3.0 * Math.sin(theta);
   const z = 2.0 + 0.8 * Math.cos(theta);
   const x = 0.0;
   return { x, y, z };

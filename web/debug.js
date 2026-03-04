@@ -42,6 +42,16 @@ function clamp01(v) {
   return Math.max(0, Math.min(1, v));
 }
 
+function resolveMode(mode) {
+  if (mode === "A") {
+    return "B";
+  }
+  if (mode === "B") {
+    return "A";
+  }
+  return mode;
+}
+
 function reverseZ(pos) {
   return { x: pos.x, y: pos.y, z: -pos.z * Z_DEPTH_GAIN };
 }
@@ -56,7 +66,7 @@ function applyZoom(nextZoom) {
 
 function trajectoryFromProgress(mode, progress) {
   const p = clamp01(progress);
-  if (mode === "N") return { x: 1.8, y: 0.0, z: 0.0 };
+  if (mode === "N") return { x: 0.0, y: 0.0, z: 0.0 };
 
   if (mode === "A") {
     const y = 0.1;
@@ -67,7 +77,7 @@ function trajectoryFromProgress(mode, progress) {
   }
 
   const theta = Math.PI * p - Math.PI / 2;
-  const y = -0.2 + 1.6 * Math.sin(theta);
+  const y = 3.0 * Math.sin(theta);
   const z = 2.0 + 0.8 * Math.cos(theta);
   const x = 0.0;
   return { x, y, z };
@@ -161,7 +171,8 @@ function drawCurrent(point2d) {
 }
 
 function drawRouteArrows(route2d) {
-  if (route2d.length < 2 || state.mode === "N") return;
+  const activeMode = resolveMode(state.mode);
+  if (route2d.length < 2 || activeMode === "N") return;
 
   const ts = [0.25, 0.5, 0.75];
   for (const t of ts) {
@@ -200,13 +211,14 @@ function render(pos, progress) {
   const w = els.xyzCanvas.clientWidth;
   const h = els.xyzCanvas.clientHeight;
   const currentPos = reverseZ(pos);
+  const activeMode = resolveMode(state.mode);
 
   clearCanvas(w, h);
   drawAxes(w, h);
 
   const route3d = [];
   for (let i = 0; i <= 120; i += 1) {
-    route3d.push(reverseZ(trajectoryFromProgress(state.mode, i / 120)));
+    route3d.push(reverseZ(trajectoryFromProgress(activeMode, i / 120)));
   }
   const route2d = route3d.map((p) => projectXYZ(p, w, h));
   drawPath(route2d, "#9ab9d6", true);
@@ -314,7 +326,8 @@ function tick() {
   const duration = Number.isFinite(state.audioEl.duration) ? state.audioEl.duration : 0;
   const current = state.audioEl.currentTime || 0;
   const progress = duration > 0 ? clamp01(current / duration) : 0;
-  const pos = trajectoryFromProgress(state.mode, progress);
+  const activeMode = resolveMode(state.mode);
+  const pos = trajectoryFromProgress(activeMode, progress);
 
   setPannerPosition(reverseZ(pos));
 
@@ -366,7 +379,7 @@ async function startRun() {
 
 window.addEventListener("resize", () => {
   resizeCanvas();
-  render(trajectoryFromProgress(state.mode, 0), 0);
+  render(trajectoryFromProgress(resolveMode(state.mode), 0), 0);
 });
 
 document.querySelectorAll("input[name='mode']").forEach((radio) => {
@@ -374,7 +387,7 @@ document.querySelectorAll("input[name='mode']").forEach((radio) => {
     if (state.running) return;
     state.mode = radio.value;
     state.trail = [];
-    render(trajectoryFromProgress(state.mode, 0), 0);
+    render(trajectoryFromProgress(resolveMode(state.mode), 0), 0);
   });
 });
 
@@ -383,19 +396,19 @@ els.startBtn.addEventListener("click", startRun);
 els.stopBtn.addEventListener("click", stopRun);
 els.zoomInBtn.addEventListener("click", () => {
   applyZoom(VIEW.zoom + ZOOM_STEP);
-  render(trajectoryFromProgress(state.mode, 0), 0);
+  render(trajectoryFromProgress(resolveMode(state.mode), 0), 0);
 });
 els.zoomOutBtn.addEventListener("click", () => {
   applyZoom(VIEW.zoom - ZOOM_STEP);
-  render(trajectoryFromProgress(state.mode, 0), 0);
+  render(trajectoryFromProgress(resolveMode(state.mode), 0), 0);
 });
 els.zoomResetBtn.addEventListener("click", () => {
   applyZoom(DEFAULT_ZOOM);
-  render(trajectoryFromProgress(state.mode, 0), 0);
+  render(trajectoryFromProgress(resolveMode(state.mode), 0), 0);
 });
 els.zoomRange.addEventListener("input", () => {
   applyZoom(Number(els.zoomRange.value));
-  render(trajectoryFromProgress(state.mode, 0), 0);
+  render(trajectoryFromProgress(resolveMode(state.mode), 0), 0);
 });
 els.xyzCanvas.addEventListener(
   "wheel",
@@ -403,7 +416,7 @@ els.xyzCanvas.addEventListener(
     event.preventDefault();
     const delta = event.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
     applyZoom(VIEW.zoom + delta);
-    render(trajectoryFromProgress(state.mode, 0), 0);
+    render(trajectoryFromProgress(resolveMode(state.mode), 0), 0);
   },
   { passive: false }
 );
@@ -411,4 +424,4 @@ els.xyzCanvas.addEventListener(
 resizeCanvas();
 applyZoom(DEFAULT_ZOOM);
 loadAudioList();
-render(trajectoryFromProgress("A", 0), 0);
+render(trajectoryFromProgress(resolveMode("A"), 0), 0);
