@@ -209,6 +209,24 @@ button {
   background: var(--stage);
 }
 
+.qr-wrap {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 54px 14px 74px;
+  background: var(--stage);
+}
+
+.qr-wrap img {
+  width: min(56vw, 460px);
+  max-width: 100%;
+  max-height: calc(100vh - 180px);
+  object-fit: contain;
+}
+
 .view-card {
   border: none;
   border-radius: 0;

@@ -26,6 +26,8 @@
         <label><input type="radio" name="mode" value="A" checked /> Mode A</label>
         <label><input type="radio" name="mode" value="B" /> Mode B</label>
         <label><input type="radio" name="mode" value="N" /> No Motion</label>
+        <label><input type="radio" name="mode" value="Q" /> QR Mode</label>
+        <label><input type="radio" name="mode" value="ALL" /> Mode All</label>
       </div>
 
       <div class="actions">
@@ -70,6 +72,10 @@
               <canvas id="topCanvas" aria-label="Top visualization"></canvas>
             </div>
           </div>
+        </div>
+
+        <div id="qrWrap" class="qr-wrap hidden" aria-label="QR display">
+          <img id="qrImg" src="/image/QR.png" alt="QR code" />
         </div>
 
         <div id="progressWrap" class="progress-wrap hidden" aria-live="polite">

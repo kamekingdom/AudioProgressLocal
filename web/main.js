@@ -3,6 +3,9 @@ const state = {
   paused: false,
   skipInFlight: false,
   mode: "A",
+  playMode: "A",
+  allSequence: [],
+  allIndex: 0,
   pass: 0,
   animationHandle: null,
   audioCtx: null,
@@ -33,10 +36,12 @@ const els = {
   progressFill: document.getElementById("progressFill"),
   darkLayer: document.getElementById("darkLayer"),
   viewsWrap: document.getElementById("viewsWrap"),
+  qrWrap: document.getElementById("qrWrap"),
   sideCanvas: document.getElementById("sideCanvas"),
   topCanvas: document.getElementById("topCanvas"),
   sideImg: document.getElementById("sideImg"),
   topImg: document.getElementById("topImg"),
+  qrImg: document.getElementById("qrImg"),
 };
 
 const sideCtx = els.sideCanvas.getContext("2d");
@@ -51,6 +56,9 @@ function lerp(a, b, t) {
 }
 
 function resolveMode(mode) {
+  if (mode === "ALL") {
+    return "N";
+  }
   if (mode === "A") {
     return "B";
   }
@@ -63,7 +71,7 @@ function resolveMode(mode) {
 function trajectoryFromProgress(mode, progress) {
   const p = clamp01(progress);
 
-  if (mode === "N") {
+  if (mode === "N" || mode === "Q" || mode === "ALL") {
     return { x: 0.0, y: 0.0, z: 0.0 };
   }
 
@@ -242,6 +250,12 @@ function drawCurrentPoint(ctx, p) {
 }
 
 function drawRouteAndPosition(mode, progress, showCurrent = true) {
+  if (mode === "Q") {
+    clearOverlay(sideCtx, els.sideCanvas.clientWidth, els.sideCanvas.clientHeight);
+    clearOverlay(topCtx, els.topCanvas.clientWidth, els.topCanvas.clientHeight);
+    return;
+  }
+
   const activeMode = resolveMode(mode);
   const sideW = els.sideCanvas.clientWidth;
   const sideH = els.sideCanvas.clientHeight;
@@ -282,6 +296,15 @@ function drawRouteAndPosition(mode, progress, showCurrent = true) {
   }
 }
 
+function modeLabelText(mode) {
+  if (mode === "A") return "Mode A";
+  if (mode === "B") return "Mode B";
+  if (mode === "N") return "No Motion";
+  if (mode === "Q") return "QR Mode";
+  if (mode === "ALL") return "Mode All";
+  return mode;
+}
+
 function showDarkOnly() {
   els.darkLayer.classList.remove("hidden");
   els.viewsWrap.classList.add("hidden");
@@ -289,8 +312,14 @@ function showDarkOnly() {
 
 function showVisualization() {
   els.darkLayer.classList.add("hidden");
-  els.viewsWrap.classList.remove("hidden");
-  resizeCanvases();
+  if (state.mode === "Q") {
+    els.viewsWrap.classList.add("hidden");
+    els.qrWrap.classList.remove("hidden");
+  } else {
+    els.qrWrap.classList.add("hidden");
+    els.viewsWrap.classList.remove("hidden");
+    resizeCanvases();
+  }
 }
 
 function setSidebarOpen(open) {
@@ -444,6 +473,7 @@ async function setupAudioForPass() {
 
 async function startPass(passNumber) {
   state.paused = false;
+  state.playMode = state.mode;
   updatePauseButton();
   state.pass = passNumber;
   els.progressWrap.classList.remove("hidden");
@@ -491,14 +521,15 @@ function updateMotionAndUI() {
   const current = state.audioEl.currentTime || 0;
   const progress = duration > 0 ? clamp01(current / duration) : 0;
 
-  const activeMode = resolveMode(state.mode);
+  const motionMode = state.mode === "ALL" ? state.playMode : state.mode;
+  const activeMode = resolveMode(motionMode);
   const pos = trajectoryFromProgress(activeMode, progress);
   setPannerPosition(pos);
 
   if (state.pass === 1) {
-    drawRouteAndPosition(state.mode, progress, false);
+    drawRouteAndPosition(motionMode, progress, false);
   } else if (state.pass === 2) {
-    drawRouteAndPosition(state.mode, progress, true);
+    drawRouteAndPosition(motionMode, progress, true);
     els.progressFill.style.width = `${progress * 100}%`;
     els.timeText.textContent = `${current.toFixed(1)} / ${duration.toFixed(1)} sec`;
   }
@@ -508,6 +539,9 @@ function stopRun(label = "停止") {
   state.running = false;
   state.paused = false;
   state.skipInFlight = false;
+  state.playMode = state.mode;
+  state.allSequence = [];
+  state.allIndex = 0;
   state.pass = 0;
 
   if (state.animationHandle) {
@@ -554,8 +588,8 @@ async function startRun() {
   }
 
   state.mode = getMode();
-  els.modeLabel.textContent =
-    state.mode === "A" ? "Mode A" : state.mode === "B" ? "Mode B" : "No Motion";
+  state.playMode = state.mode;
+  els.modeLabel.textContent = modeLabelText(state.mode);
 
   try {
     state.running = true;
@@ -570,7 +604,15 @@ async function startRun() {
     els.reloadBtn.disabled = true;
     setSidebarOpen(false);
 
-    await startPass(1);
+    if (state.mode === "ALL") {
+      state.allSequence = ["N", "A", "B"];
+      state.allIndex = 0;
+      await startAllSequenceStep();
+    } else {
+      state.allSequence = [];
+      state.allIndex = 0;
+      await startPass(1);
+    }
     state.animationHandle = requestAnimationFrame(animationLoop);
   } catch (err) {
     stopRun("エラー停止");
@@ -598,7 +640,11 @@ async function togglePause() {
   try {
     await state.audioEl.play();
     state.paused = false;
-    setPhaseLabelForPass(state.pass);
+    if (state.mode === "ALL") {
+      els.phaseLabel.textContent = `Mode All ${state.allIndex + 1}/3: 可視化`;
+    } else {
+      setPhaseLabelForPass(state.pass);
+    }
     updatePauseButton();
     state.animationHandle = requestAnimationFrame(animationLoop);
   } catch (err) {
@@ -616,6 +662,19 @@ async function skipPasses() {
   els.pauseBtn.disabled = true;
 
   try {
+    if (state.mode === "ALL") {
+      state.allIndex += 1;
+      if (state.allIndex >= state.allSequence.length) {
+        stopRun("スキップ完了");
+        return;
+      }
+      await startAllSequenceStep();
+      if (state.running && !state.animationHandle) {
+        state.animationHandle = requestAnimationFrame(animationLoop);
+      }
+      return;
+    }
+
     if (state.pass === 1) {
       await startPass(2);
       if (state.running && !state.animationHandle) {
@@ -638,8 +697,8 @@ async function skipPasses() {
 
 function onModeChanged() {
   state.mode = getMode();
-  els.modeLabel.textContent =
-    state.mode === "A" ? "Mode A" : state.mode === "B" ? "Mode B" : "No Motion";
+  state.playMode = state.mode;
+  els.modeLabel.textContent = modeLabelText(state.mode);
 
   if (!state.running) {
     showVisualization();
@@ -650,6 +709,9 @@ function onModeChanged() {
 function setupImageFallback() {
   els.topImg.addEventListener("error", () => {
     els.topImg.src = "/image/front.png";
+  });
+  els.qrImg.addEventListener("error", () => {
+    els.phaseLabel.textContent = "QR画像が見つかりません";
   });
 }
 
@@ -690,3 +752,38 @@ setSidebarOpen(false);
 loadAudioList();
 onModeChanged();
 updatePauseButton();
+
+async function startAllSequenceStep() {
+  if (!state.running) {
+    return;
+  }
+  if (state.allIndex >= state.allSequence.length) {
+    stopRun("完了");
+    return;
+  }
+
+  state.paused = false;
+  updatePauseButton();
+
+  const seqMode = state.allSequence[state.allIndex];
+  state.playMode = seqMode;
+  state.pass = 2;
+  els.modeLabel.textContent = `Mode All: ${modeLabelText(seqMode)}`;
+  els.phaseLabel.textContent = `Mode All ${state.allIndex + 1}/3: 可視化`;
+  els.progressWrap.classList.remove("hidden");
+  els.progressWrap.classList.remove("unknown-progress");
+  els.progressFill.style.width = "0%";
+  els.timeText.textContent = "0.0 / 0.0 sec";
+  showVisualization();
+  drawRouteAndPosition(state.playMode, 0, true);
+
+  await setupAudioForPass();
+  state.audioEl.onended = async () => {
+    if (!state.running) {
+      return;
+    }
+    state.allIndex += 1;
+    await startAllSequenceStep();
+  };
+  await state.audioEl.play();
+}
