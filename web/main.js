@@ -21,10 +21,11 @@ const els = {
   pauseBtn: document.getElementById("pauseBtn"),
   skipBtn: document.getElementById("skipBtn"),
   skipCount: document.getElementById("skipCount"),
-  sidebarToggle: document.getElementById("sidebarToggle"),
+  sidebarHoverZone: document.getElementById("sidebarHoverZone"),
   sidebarClose: document.getElementById("sidebarClose"),
   sidebar: document.getElementById("sidebar"),
   sidebarBackdrop: document.getElementById("sidebarBackdrop"),
+  mainArea: document.querySelector(".main-area"),
   phaseLabel: document.getElementById("phaseLabel"),
   modeLabel: document.getElementById("modeLabel"),
   timeText: document.getElementById("timeText"),
@@ -291,8 +292,7 @@ function showVisualization() {
 function setSidebarOpen(open) {
   document.body.classList.toggle("sidebar-open", open);
   els.sidebar.setAttribute("aria-hidden", String(!open));
-  els.sidebarToggle.setAttribute("aria-expanded", String(open));
-  els.sidebarBackdrop.classList.toggle("hidden", !open);
+  els.sidebarBackdrop.classList.add("hidden");
 }
 
 async function loadAudioList() {
@@ -372,9 +372,16 @@ function setPannerPosition(pos) {
     return;
   }
 
-  state.pannerNode.positionX.value = pos.x;
-  state.pannerNode.positionY.value = pos.y;
-  state.pannerNode.positionZ.value = pos.z;
+  if ("positionX" in state.pannerNode && state.pannerNode.positionX) {
+    state.pannerNode.positionX.value = pos.x;
+    state.pannerNode.positionY.value = pos.y;
+    state.pannerNode.positionZ.value = pos.z;
+    return;
+  }
+
+  if (typeof state.pannerNode.setPosition === "function") {
+    state.pannerNode.setPosition(pos.x, pos.y, pos.z);
+  }
 }
 
 async function setupAudioForPass() {
@@ -386,53 +393,69 @@ async function setupAudioForPass() {
   state.audioEl.crossOrigin = "anonymous";
 
   state.mediaNode = state.audioCtx.createMediaElementSource(state.audioEl);
-  state.pannerNode = new PannerNode(state.audioCtx, {
-    panningModel: "HRTF",
-    distanceModel: "inverse",
-    refDistance: 1,
-    maxDistance: 10000,
-    rolloffFactor: 0,
-    coneInnerAngle: 360,
-    coneOuterAngle: 360,
-    positionX: 0,
-    positionY: 0,
-    positionZ: 0,
-  });
-
   state.gainNode = state.audioCtx.createGain();
   state.gainNode.gain.value = 1.0;
 
-  state.mediaNode.connect(state.pannerNode);
-  state.pannerNode.connect(state.gainNode);
+  try {
+    state.pannerNode = new PannerNode(state.audioCtx, {
+      panningModel: "HRTF",
+      distanceModel: "inverse",
+      refDistance: 1,
+      maxDistance: 10000,
+      rolloffFactor: 0,
+      coneInnerAngle: 360,
+      coneOuterAngle: 360,
+      positionX: 0,
+      positionY: 0,
+      positionZ: 0,
+    });
+    state.mediaNode.connect(state.pannerNode);
+    state.pannerNode.connect(state.gainNode);
+  } catch (_err) {
+    // Fallback: keep playback alive even when spatial node construction fails.
+    state.pannerNode = null;
+    state.mediaNode.connect(state.gainNode);
+  }
+
   state.gainNode.connect(state.audioCtx.destination);
 
   const listener = state.audioCtx.listener;
-  listener.positionX.value = 0;
-  listener.positionY.value = 0;
-  listener.positionZ.value = 0;
-  listener.forwardX.value = 0;
-  listener.forwardY.value = 0;
-  listener.forwardZ.value = -1;
-  listener.upX.value = 0;
-  listener.upY.value = 1;
-  listener.upZ.value = 0;
+  if (listener) {
+    if (listener.positionX && "value" in listener.positionX) {
+      listener.positionX.value = 0;
+      listener.positionY.value = 0;
+      listener.positionZ.value = 0;
+      listener.forwardX.value = 0;
+      listener.forwardY.value = 0;
+      listener.forwardZ.value = -1;
+      listener.upX.value = 0;
+      listener.upY.value = 1;
+      listener.upZ.value = 0;
+    } else if (typeof listener.setPosition === "function" && typeof listener.setOrientation === "function") {
+      listener.setPosition(0, 0, 0);
+      listener.setOrientation(0, 0, -1, 0, 1, 0);
+    }
+  }
 }
 
 async function startPass(passNumber) {
   state.paused = false;
   updatePauseButton();
   state.pass = passNumber;
-  els.progressFill.style.width = "0%";
-  els.timeText.textContent = "0.0 / 0.0 sec";
+  els.progressWrap.classList.remove("hidden");
 
   if (passNumber === 1) {
     setPhaseLabelForPass(passNumber);
-    els.progressWrap.classList.add("hidden");
+    els.progressWrap.classList.add("unknown-progress");
+    els.progressFill.style.width = "100%";
+    els.timeText.textContent = "--.- / --.- sec";
     showVisualization();
     drawRouteAndPosition(state.mode, 0, false);
   } else {
     setPhaseLabelForPass(passNumber);
-    els.progressWrap.classList.remove("hidden");
+    els.progressWrap.classList.remove("unknown-progress");
+    els.progressFill.style.width = "0%";
+    els.timeText.textContent = "0.0 / 0.0 sec";
     showVisualization();
     drawRouteAndPosition(state.mode, 0, true);
   }
@@ -498,6 +521,7 @@ function stopRun(label = "停止") {
   els.audioSelect.disabled = false;
   els.reloadBtn.disabled = false;
   els.progressWrap.classList.add("hidden");
+  els.progressWrap.classList.remove("unknown-progress");
   els.phaseLabel.textContent = label;
   els.progressFill.style.width = "0%";
   showVisualization();
@@ -638,9 +662,18 @@ els.stopBtn.addEventListener("click", () => stopRun("停止"));
 els.pauseBtn.addEventListener("click", togglePause);
 els.skipBtn.addEventListener("click", skipPasses);
 els.reloadBtn.addEventListener("click", loadAudioList);
-els.sidebarToggle.addEventListener("click", () => setSidebarOpen(true));
 els.sidebarClose.addEventListener("click", () => setSidebarOpen(false));
-els.sidebarBackdrop.addEventListener("click", () => setSidebarOpen(false));
+els.sidebarHoverZone.addEventListener("mouseenter", () => setSidebarOpen(true));
+els.sidebar.addEventListener("mouseenter", () => setSidebarOpen(true));
+document.addEventListener("mousemove", (event) => {
+  if (event.clientX <= 16) {
+    setSidebarOpen(true);
+    return;
+  }
+  if (event.clientX >= 380 && !els.sidebar.matches(":hover")) {
+    setSidebarOpen(false);
+  }
+});
 
 document.querySelectorAll("input[name='mode']").forEach((radio) => {
   radio.addEventListener("change", onModeChanged);

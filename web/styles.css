@@ -25,29 +25,13 @@ body {
   font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
 }
 
-.sidebar-toggle {
-  position: relative;
-  z-index: 8;
-  border: 1px solid var(--panel-border);
-  border-radius: 10px;
-  background: var(--panel);
-  width: 42px;
-  height: 42px;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  gap: 4px;
-  cursor: pointer;
-}
-
-.sidebar-toggle span {
-  display: block;
+.sidebar-hover-zone {
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
   width: 18px;
-  height: 2px;
-  background: #4b6178;
-  border-radius: 99px;
+  z-index: 34;
 }
 
 .sidebar {
@@ -58,7 +42,6 @@ body {
   width: min(340px, 88vw);
   z-index: 40;
   background: var(--panel);
-  border-right: 1px solid var(--panel-border);
   transform: translateX(-100%);
   transition: transform 160ms ease;
   padding: 18px;
@@ -84,7 +67,7 @@ h1 {
 }
 
 .icon-btn {
-  border: 1px solid var(--panel-border);
+  border: none;
   background: var(--btn-sub);
   color: var(--btn-sub-text);
   border-radius: 8px;
@@ -122,7 +105,7 @@ select {
   margin-top: 5px;
   background: var(--panel);
   color: var(--text);
-  border: 1px solid var(--panel-border);
+  border: none;
   border-radius: 8px;
   padding: 8px;
 }
@@ -181,15 +164,15 @@ button {
   width: 64px;
   background: var(--panel);
   color: var(--text);
-  border: 1px solid var(--panel-border);
+  border: none;
   border-radius: 8px;
   padding: 10px 8px;
   font-size: 0.92rem;
 }
 
 .stage {
-  border: 1px solid var(--panel-border);
-  border-radius: 14px;
+  border: none;
+  border-radius: 0;
   position: relative;
   overflow: hidden;
   background: var(--stage);
@@ -204,7 +187,8 @@ button {
   z-index: 8;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
+  pointer-events: none;
 }
 
 .dark-layer {
@@ -226,16 +210,16 @@ button {
 }
 
 .view-card {
-  border: 1px solid var(--panel-border);
-  border-radius: 10px;
-  background: var(--card);
+  border: none;
+  border-radius: 0;
+  background: transparent;
   overflow: hidden;
   display: grid;
   grid-template-rows: auto 1fr;
 }
 
 .view-title {
-  border-bottom: 1px solid var(--panel-border);
+  border-bottom: none;
   color: var(--sub);
   font-size: 0.84rem;
   padding: 8px 10px;
@@ -270,13 +254,14 @@ button {
 }
 
 .phase-label {
-  padding: 7px 12px;
-  border-radius: 999px;
-  background: var(--panel);
-  border: 1px solid var(--panel-border);
+  padding: 0;
   color: var(--text);
-  font-size: 0.88rem;
-  font-weight: 600;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95),
+    0 0 8px rgba(255, 255, 255, 0.75);
 }
 
 .progress-wrap {
@@ -286,9 +271,9 @@ button {
   bottom: 16px;
   z-index: 5;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: 8px;
   background: rgba(9, 14, 22, 0.86);
-  border: 1px solid #304661;
+  border: none;
 }
 
 .progress-header {
@@ -305,13 +290,33 @@ button {
   background: #101927;
   border-radius: 999px;
   overflow: hidden;
-  border: 1px solid #2b415d;
+  border: none;
 }
 
 .progress-fill {
   width: 0%;
   height: 100%;
   background: linear-gradient(90deg, #2ed798, #67b9ff);
+}
+
+.progress-wrap.unknown-progress .progress-fill {
+  width: 100% !important;
+  opacity: 0.5;
+  background: repeating-linear-gradient(
+    120deg,
+    rgba(103, 185, 255, 0.35) 0 10px,
+    rgba(46, 215, 152, 0.35) 10px 20px
+  );
+  animation: unknown-progress-slide 1.1s linear infinite;
+}
+
+@keyframes unknown-progress-slide {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 40px 0;
+  }
 }
 
 .hidden {
