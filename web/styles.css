@@ -223,6 +223,7 @@ button {
   color: var(--sub);
   font-size: 0.84rem;
   padding: 8px 10px;
+  text-align: center;
 }
 
 .view-body {
