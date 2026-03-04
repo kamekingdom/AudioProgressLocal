@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Audio Trajectory Debug</title>
+    <link rel="stylesheet" href="/web/debug.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <h1>Audio Trajectory Debug (3D x-y-z)</h1>
+      <a href="/web/index.html" class="back-link">Main</a>
+    </header>
+
+    <section class="controls">
+      <label>
+        audio/ の音源
+        <select id="audioSelect"></select>
+      </label>
+
+      <div class="mode-select" role="radiogroup" aria-label="Playback mode">
+        <label><input type="radio" name="mode" value="A" checked /> Mode A</label>
+        <label><input type="radio" name="mode" value="B" /> Mode B</label>
+        <label><input type="radio" name="mode" value="N" /> No Motion</label>
+      </div>
+
+      <button id="reloadBtn" type="button">一覧更新</button>
+      <button id="startBtn" type="button">Debug再生</button>
+      <button id="stopBtn" type="button" disabled>停止</button>
+
+      <div id="info" class="info">x:0.00 y:0.00 z:0.00</div>
+    </section>
+
+    <main class="grid">
+      <section class="panel">
+        <h2>3D View (x-y-z)</h2>
+        <canvas id="xyzCanvas"></canvas>
+      </section>
+    </main>
+
+    <script src="/eel.js"></script>
+    <script src="/web/debug.js"></script>
+  </body>
+</html>

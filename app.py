@@ -39,6 +39,12 @@ def list_audio_files() -> list[str]:
     return files
 
 
+@eel.btl.route("/debug")
+@eel.btl.route("/debug/")
+def debug_page():
+    return eel.btl.static_file("debug.html", root=str(BASE_DIR / "web"))
+
+
 def main() -> None:
     args = parse_args()
     AUDIO_DIR.mkdir(exist_ok=True)
