@@ -41,6 +41,10 @@ pip install -r requirements.txt
 python app.py
 ```
 
+## URL
+- Main: `http://127.0.0.1:8080/web/index.html`
+- Debug: `http://127.0.0.1:8080/debug`
+
 ## 使い方
 1. `audio/` に音源ファイルを配置
 2. `image/` に `side.png` と `top.png` を配置
