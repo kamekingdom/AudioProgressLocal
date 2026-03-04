@@ -156,6 +156,10 @@ function mapSidePoint(mode, pos, progress, w, h) {
 }
 
 function mapTopPoint(mode, pos, progress, w, h) {
+  if (mode === "N") {
+    return { x: w * 0.5, y: h * 0.33 };
+  }
+
   if (mode === "A") {
     const cx = w * 0.5;
     const cy = h * 0.58;
