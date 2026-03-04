@@ -16,6 +16,10 @@ const els = {
   reloadBtn: document.getElementById("reloadBtn"),
   startBtn: document.getElementById("startBtn"),
   stopBtn: document.getElementById("stopBtn"),
+  zoomInBtn: document.getElementById("zoomInBtn"),
+  zoomOutBtn: document.getElementById("zoomOutBtn"),
+  zoomResetBtn: document.getElementById("zoomResetBtn"),
+  zoomRange: document.getElementById("zoomRange"),
   info: document.getElementById("info"),
   xyzCanvas: document.getElementById("xyzCanvas"),
 };
@@ -28,9 +32,26 @@ const VIEW = {
   distance: 12,
   zoom: 78,
 };
+const Z_DEPTH_GAIN = 1.8;
+const ZOOM_MIN = 40;
+const ZOOM_MAX = 180;
+const ZOOM_STEP = 8;
+const DEFAULT_ZOOM = 78;
 
 function clamp01(v) {
   return Math.max(0, Math.min(1, v));
+}
+
+function reverseZ(pos) {
+  return { x: pos.x, y: pos.y, z: -pos.z * Z_DEPTH_GAIN };
+}
+
+function applyZoom(nextZoom) {
+  const clamped = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, nextZoom));
+  VIEW.zoom = clamped;
+  if (els.zoomRange) {
+    els.zoomRange.value = String(Math.round(clamped));
+  }
 }
 
 function trajectoryFromProgress(mode, progress) {
@@ -178,25 +199,26 @@ function drawRouteArrows(route2d) {
 function render(pos, progress) {
   const w = els.xyzCanvas.clientWidth;
   const h = els.xyzCanvas.clientHeight;
+  const currentPos = reverseZ(pos);
 
   clearCanvas(w, h);
   drawAxes(w, h);
 
   const route3d = [];
   for (let i = 0; i <= 120; i += 1) {
-    route3d.push(trajectoryFromProgress(state.mode, i / 120));
+    route3d.push(reverseZ(trajectoryFromProgress(state.mode, i / 120)));
   }
   const route2d = route3d.map((p) => projectXYZ(p, w, h));
   drawPath(route2d, "#9ab9d6", true);
   drawRouteArrows(route2d);
 
-  const trail2d = state.trail.map((s) => projectXYZ(s.pos, w, h));
+  const trail2d = state.trail.map((s) => projectXYZ(reverseZ(s.pos), w, h));
   drawPath(trail2d, "#5aaef5", false);
 
-  drawCurrent(projectXYZ(pos, w, h));
+  drawCurrent(projectXYZ(currentPos, w, h));
 
-  const fb = pos.z < 0 ? "FRONT(-z)" : "BACK(+z)";
-  els.info.textContent = `x:${pos.x.toFixed(2)} y:${pos.y.toFixed(2)} z:${pos.z.toFixed(2)} / ${fb} / p:${(progress * 100).toFixed(1)}%`;
+  const fb = currentPos.z > 0 ? "FRONT(+z)" : "BACK(-z)";
+  els.info.textContent = `x:${currentPos.x.toFixed(2)} y:${currentPos.y.toFixed(2)} z:${currentPos.z.toFixed(2)} / ${fb} / p:${(progress * 100).toFixed(1)}%`;
 }
 
 async function loadAudioList() {
@@ -294,7 +316,7 @@ function tick() {
   const progress = duration > 0 ? clamp01(current / duration) : 0;
   const pos = trajectoryFromProgress(state.mode, progress);
 
-  setPannerPosition(pos);
+  setPannerPosition(reverseZ(pos));
 
   if (state.trail.length === 0 || progress - state.trail[state.trail.length - 1].progress > 0.004) {
     state.trail.push({ progress, pos });
@@ -359,7 +381,34 @@ document.querySelectorAll("input[name='mode']").forEach((radio) => {
 els.reloadBtn.addEventListener("click", loadAudioList);
 els.startBtn.addEventListener("click", startRun);
 els.stopBtn.addEventListener("click", stopRun);
+els.zoomInBtn.addEventListener("click", () => {
+  applyZoom(VIEW.zoom + ZOOM_STEP);
+  render(trajectoryFromProgress(state.mode, 0), 0);
+});
+els.zoomOutBtn.addEventListener("click", () => {
+  applyZoom(VIEW.zoom - ZOOM_STEP);
+  render(trajectoryFromProgress(state.mode, 0), 0);
+});
+els.zoomResetBtn.addEventListener("click", () => {
+  applyZoom(DEFAULT_ZOOM);
+  render(trajectoryFromProgress(state.mode, 0), 0);
+});
+els.zoomRange.addEventListener("input", () => {
+  applyZoom(Number(els.zoomRange.value));
+  render(trajectoryFromProgress(state.mode, 0), 0);
+});
+els.xyzCanvas.addEventListener(
+  "wheel",
+  (event) => {
+    event.preventDefault();
+    const delta = event.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
+    applyZoom(VIEW.zoom + delta);
+    render(trajectoryFromProgress(state.mode, 0), 0);
+  },
+  { passive: false }
+);
 
 resizeCanvas();
+applyZoom(DEFAULT_ZOOM);
 loadAudioList();
 render(trajectoryFromProgress("A", 0), 0);

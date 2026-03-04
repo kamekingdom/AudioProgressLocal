@@ -28,6 +28,13 @@
       <button id="startBtn" type="button">Debug再生</button>
       <button id="stopBtn" type="button" disabled>停止</button>
 
+      <div class="zoom-controls" aria-label="3D zoom controls">
+        <button id="zoomOutBtn" type="button" title="Zoom out">-</button>
+        <input id="zoomRange" type="range" min="40" max="180" step="1" value="78" />
+        <button id="zoomInBtn" type="button" title="Zoom in">+</button>
+        <button id="zoomResetBtn" type="button">Reset</button>
+      </div>
+
       <div id="info" class="info">x:0.00 y:0.00 z:0.00</div>
     </section>
 

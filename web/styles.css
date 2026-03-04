@@ -157,16 +157,34 @@ button {
 }
 
 #reloadBtn,
-#stopBtn {
+#stopBtn,
+#pauseBtn,
+#skipBtn {
   background: var(--btn-sub);
   color: var(--btn-sub-text);
 }
 
 #stopBtn:disabled,
 #startBtn:disabled,
-#reloadBtn:disabled {
+#reloadBtn:disabled,
+#pauseBtn:disabled,
+#skipBtn:disabled {
   cursor: not-allowed;
   opacity: 0.5;
+}
+
+.skip-actions {
+  align-items: center;
+}
+
+#skipCount {
+  width: 64px;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  padding: 10px 8px;
+  font-size: 0.92rem;
 }
 
 .stage {

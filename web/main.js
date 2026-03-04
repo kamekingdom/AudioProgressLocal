@@ -1,5 +1,7 @@
 const state = {
   running: false,
+  paused: false,
+  skipInFlight: false,
   mode: "A",
   pass: 0,
   animationHandle: null,
@@ -16,6 +18,9 @@ const els = {
   reloadBtn: document.getElementById("reloadBtn"),
   startBtn: document.getElementById("startBtn"),
   stopBtn: document.getElementById("stopBtn"),
+  pauseBtn: document.getElementById("pauseBtn"),
+  skipBtn: document.getElementById("skipBtn"),
+  skipCount: document.getElementById("skipCount"),
   sidebarToggle: document.getElementById("sidebarToggle"),
   sidebarClose: document.getElementById("sidebarClose"),
   sidebar: document.getElementById("sidebar"),
@@ -227,7 +232,7 @@ function drawDashedRoute(ctx, nodes2d, showArrows = true, arrowTs = null) {
 function drawCurrentPoint(ctx, p) {
   ctx.fillStyle = "#26d595";
   ctx.beginPath();
-  ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
+  ctx.arc(p.x, p.y, 15, 0, Math.PI * 2);
   ctx.fill();
 }
 
@@ -350,6 +355,18 @@ function cleanupAudioGraph() {
   state.gainNode = null;
 }
 
+function updatePauseButton() {
+  els.pauseBtn.textContent = state.paused ? "再開" : "一時停止";
+}
+
+function setPhaseLabelForPass(passNumber) {
+  if (passNumber === 1) {
+    els.phaseLabel.textContent = "1回目: 現在地非表示 + 音源移動";
+  } else if (passNumber === 2) {
+    els.phaseLabel.textContent = "2回目: 可視化 + Progress";
+  }
+}
+
 function setPannerPosition(pos) {
   if (!state.pannerNode) {
     return;
@@ -402,17 +419,19 @@ async function setupAudioForPass() {
 }
 
 async function startPass(passNumber) {
+  state.paused = false;
+  updatePauseButton();
   state.pass = passNumber;
   els.progressFill.style.width = "0%";
   els.timeText.textContent = "0.0 / 0.0 sec";
 
   if (passNumber === 1) {
-    els.phaseLabel.textContent = "1回目: 現在地非表示 + 音源移動";
+    setPhaseLabelForPass(passNumber);
     els.progressWrap.classList.add("hidden");
     showVisualization();
     drawRouteAndPosition(state.mode, 0, false);
   } else {
-    els.phaseLabel.textContent = "2回目: 可視化 + Progress";
+    setPhaseLabelForPass(passNumber);
     els.progressWrap.classList.remove("hidden");
     showVisualization();
     drawRouteAndPosition(state.mode, 0, true);
@@ -459,11 +478,9 @@ function updateMotionAndUI() {
 }
 
 function stopRun(label = "停止") {
-  if (!state.running) {
-    return;
-  }
-
   state.running = false;
+  state.paused = false;
+  state.skipInFlight = false;
   state.pass = 0;
 
   if (state.animationHandle) {
@@ -473,8 +490,11 @@ function stopRun(label = "停止") {
 
   cleanupAudioGraph();
 
-  els.startBtn.disabled = false;
+  els.startBtn.disabled = !els.audioSelect.value;
   els.stopBtn.disabled = true;
+  els.pauseBtn.disabled = true;
+  els.skipBtn.disabled = true;
+  els.skipCount.disabled = false;
   els.audioSelect.disabled = false;
   els.reloadBtn.disabled = false;
   els.progressWrap.classList.add("hidden");
@@ -482,6 +502,7 @@ function stopRun(label = "停止") {
   els.progressFill.style.width = "0%";
   showVisualization();
   drawRouteAndPosition(getMode(), 0, false);
+  updatePauseButton();
 }
 
 function animationLoop() {
@@ -510,8 +531,13 @@ async function startRun() {
 
   try {
     state.running = true;
+    state.paused = false;
+    state.skipInFlight = false;
     els.startBtn.disabled = true;
     els.stopBtn.disabled = false;
+    els.pauseBtn.disabled = false;
+    els.skipBtn.disabled = false;
+    els.skipCount.disabled = false;
     els.audioSelect.disabled = true;
     els.reloadBtn.disabled = true;
     setSidebarOpen(false);
@@ -521,6 +547,64 @@ async function startRun() {
   } catch (err) {
     stopRun("エラー停止");
     alert(`再生に失敗しました: ${String(err)}`);
+  }
+}
+
+async function togglePause() {
+  if (!state.running || !state.audioEl || state.skipInFlight) {
+    return;
+  }
+
+  if (!state.paused) {
+    state.paused = true;
+    if (state.animationHandle) {
+      cancelAnimationFrame(state.animationHandle);
+      state.animationHandle = null;
+    }
+    state.audioEl.pause();
+    els.phaseLabel.textContent = "一時停止中";
+    updatePauseButton();
+    return;
+  }
+
+  try {
+    await state.audioEl.play();
+    state.paused = false;
+    setPhaseLabelForPass(state.pass);
+    updatePauseButton();
+    state.animationHandle = requestAnimationFrame(animationLoop);
+  } catch (err) {
+    alert(`再開に失敗しました: ${String(err)}`);
+  }
+}
+
+async function skipPasses() {
+  if (!state.running || state.skipInFlight) {
+    return;
+  }
+
+  state.skipInFlight = true;
+  els.skipBtn.disabled = true;
+  els.pauseBtn.disabled = true;
+
+  try {
+    if (state.pass === 1) {
+      await startPass(2);
+      if (state.running && !state.animationHandle) {
+        state.animationHandle = requestAnimationFrame(animationLoop);
+      }
+      return;
+    }
+    stopRun("スキップ完了");
+  } catch (err) {
+    stopRun("エラー停止");
+    alert(`スキップに失敗しました: ${String(err)}`);
+  } finally {
+    if (state.running) {
+      els.skipBtn.disabled = false;
+      els.pauseBtn.disabled = false;
+    }
+    state.skipInFlight = false;
   }
 }
 
@@ -551,6 +635,8 @@ window.addEventListener("resize", () => {
 
 els.startBtn.addEventListener("click", startRun);
 els.stopBtn.addEventListener("click", () => stopRun("停止"));
+els.pauseBtn.addEventListener("click", togglePause);
+els.skipBtn.addEventListener("click", skipPasses);
 els.reloadBtn.addEventListener("click", loadAudioList);
 els.sidebarToggle.addEventListener("click", () => setSidebarOpen(true));
 els.sidebarClose.addEventListener("click", () => setSidebarOpen(false));
@@ -566,3 +652,4 @@ showVisualization();
 setSidebarOpen(false);
 loadAudioList();
 onModeChanged();
+updatePauseButton();

@@ -48,7 +48,7 @@ h1 {
 
 .controls {
   display: grid;
-  grid-template-columns: 2fr 2fr auto auto auto 2fr;
+  grid-template-columns: 1.8fr 2fr auto auto auto 2.3fr 2.2fr;
   gap: 10px;
   align-items: center;
   border: 1px solid var(--border);
@@ -89,6 +89,21 @@ button {
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.zoom-controls button {
+  min-width: 38px;
+  padding: 8px 10px;
+}
+
+#zoomRange {
+  width: 180px;
 }
 
 .info {
